@@ -1,0 +1,22 @@
+# macOS, editors & Python caches
+.DS_Store
+__pycache__/
+*.py[cod]
+*.log
+*.tmp
+*.bak
+.env
+.env.*
+
+# Local runtime database, launcher, governance, tooling and source spreadsheets
+data/local-server-db.json
+Iniciar_Servidor_PDV.command
+.agents/
+.ai-squad/
+Base de Apoio/
+AI-SQUAD-SDD-ANTIGRAVITY.md
+CANDIDATE-NOTICE.md
+RELEASE-STATUS.md
+
+# Generated deploy staging directory & zip archive
+dist/

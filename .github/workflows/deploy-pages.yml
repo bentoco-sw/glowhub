@@ -1,0 +1,68 @@
+name: Deploy GlowHub & BentoClub to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run unit tests (when test suite is present)
+        if: ${{ hashFiles('tests/test_pdv_engine.py') != '' }}
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
+
+      - name: Stage public GitHub Pages PWA bundle
+        run: |
+          if [ -f "scripts/prepare_deploy.py" ]; then
+            PYTHONDONTWRITEBYTECODE=1 python3 scripts/prepare_deploy.py
+          fi
+          rm -rf _site && mkdir -p _site
+          for entry in .nojekyll index.html styles.css manifest.webmanifest sw.js assets js; do
+            if [ -e "$entry" ]; then
+              cp -R "$entry" _site/
+            fi
+          done
+          mkdir -p _site/data
+          for data_file in data/seed-data.js data/seed-data.json; do
+            if [ -f "$data_file" ]; then
+              cp "$data_file" _site/data/
+            fi
+          done
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static PWA artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "_site"
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
