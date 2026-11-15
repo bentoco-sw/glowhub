@@ -24,6 +24,7 @@ DEPLOY_FILES = [
     'README.md',
     'data/seed-data.js',
     'data/seed-data.json',
+    'data/migrated-sales.js',
     'backend/Code.gs',
     '.github/CODEOWNERS',
     '.github/dependabot.yml',

@@ -42,7 +42,7 @@ jobs:
             fi
           done
           mkdir -p _site/data
-          for data_file in data/seed-data.js data/seed-data.json; do
+          for data_file in data/seed-data.js data/seed-data.json data/migrated-sales.js; do
             if [ -f "$data_file" ]; then
               cp "$data_file" _site/data/
             fi

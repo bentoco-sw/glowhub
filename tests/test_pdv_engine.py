@@ -326,6 +326,7 @@ class TestPDVEngineAndRTM(unittest.TestCase):
                 [
                     str(jsc_bin),
                     str(ROOT_DIR / 'data' / 'seed-data.js'),
+                    str(ROOT_DIR / 'data' / 'migrated-sales.js'),
                     str(ROOT_DIR / 'js' / 'domain.js'),
                     str(ROOT_DIR / 'js' / 'storage.js'),
                     str(ROOT_DIR / 'js' / 'auth-guard.js'),
@@ -614,13 +615,13 @@ class TestPDVEngineAndRTM(unittest.TestCase):
         self.assertIn('btn-print-full-closing', app_js_text)
 
         sw_text = (ROOT_DIR / 'sw.js').read_text(encoding='utf-8')
-        self.assertIn('bento-glow-pdv-shell-v1.5.1', sw_text)
+        self.assertIn('bento-glow-pdv-shell-v1.5.2', sw_text)
         self.assertIn('./assets/icon-192.png', sw_text)
         self.assertIn('./assets/icon-512.png', sw_text)
         self.assertIn('ignoreSearch: true', sw_text)
 
         arch_text = (ROOT_DIR / 'docs' / 'specs' / 'ARCHITECTURE.md').read_text(encoding='utf-8')
-        self.assertIn('bento-glow-pdv-shell-v1.5.1', arch_text)
+        self.assertIn('bento-glow-pdv-shell-v1.5.2', arch_text)
 
         index_text = (ROOT_DIR / 'index.html').read_text(encoding='utf-8')
         self.assertIn('assets/icon-192.png', index_text)
@@ -697,6 +698,66 @@ class TestPDVEngineAndRTM(unittest.TestCase):
         self.assertTrue((ROOT_DIR / '.gitattributes').is_file())
         self.assertIn('Base de Apoio/', (ROOT_DIR / '.gitignore').read_text(encoding='utf-8'))
         self.assertTrue((ROOT_DIR / 'scripts' / 'deploy_github.sh').is_file())
+
+    def test_REQ_10_AC_10_ENG_08_migrated_sales_bundle_and_deploy_manifest(self) -> None:
+        """REQ-10 AC-10 ENG-08 ARC-02: verify exported local sales bundle, stock math, script & deploy inclusion."""
+        import tempfile
+        sys.path.insert(0, str(ROOT_DIR / 'scripts'))
+        from export_local_sales import export_local_sales
+
+        migrated_path = ROOT_DIR / 'data' / 'migrated-sales.js'
+        self.assertTrue(migrated_path.is_file())
+        migrated_text = migrated_path.read_text(encoding='utf-8')
+        prefix = 'globalThis.PDV_MIGRATED_DATA = '
+        idx = migrated_text.find(prefix)
+        self.assertGreaterEqual(idx, 0)
+        payload = json.loads(migrated_text[idx + len(prefix):].strip().rstrip(';'))
+
+        self.assertEqual(payload['schema'], 'bento_glow_pdv_migration_v1')
+        self.assertEqual(payload['salesCount'], 9)
+        self.assertEqual(len(payload['sales']), 9)
+        self.assertEqual(payload['totalCents'], 628472)
+        self.assertEqual(sum(s['totalCents'] for s in payload['sales']), 628472)
+        self.assertEqual(sum(s['glowHubCents'] for s in payload['sales']), 182972)
+        self.assertEqual(sum(s['bentoClubCents'] for s in payload['sales']), 445500)
+        self.assertTrue(all(s.get('syncStatus') == 'pending' for s in payload['sales']))
+
+        index_html = (ROOT_DIR / 'index.html').read_text(encoding='utf-8')
+        sw_text = (ROOT_DIR / 'sw.js').read_text(encoding='utf-8')
+        prepare_text = (ROOT_DIR / 'scripts' / 'prepare_deploy.py').read_text(encoding='utf-8')
+        pages_yml = (ROOT_DIR / '.github' / 'workflows' / 'deploy-pages.yml').read_text(encoding='utf-8')
+        self.assertIn('data/migrated-sales.js', index_html)
+        self.assertIn('./data/migrated-sales.js', sw_text)
+        self.assertIn('data/migrated-sales.js', prepare_text)
+        self.assertIn('data/migrated-sales.js', pages_yml)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            mock_db = tmp / 'local-db.json'
+            mock_db.write_text(
+                json.dumps(
+                    {
+                        'sales': payload['sales'][:2],
+                        'clients': [],
+                        'stockAdjustments': [],
+                        'cashClosings': {},
+                        'updatedAt': '2026-11-15T00:00:00Z',
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding='utf-8',
+            )
+            res = export_local_sales(
+                db_path=mock_db,
+                seed_path=ROOT_DIR / 'data' / 'seed-data.json',
+                js_out=tmp / 'migrated.js',
+                backup_out=tmp / 'backup.json',
+            )
+            self.assertTrue(res['ok'])
+            self.assertEqual(res['salesCount'], 2)
+            backup_obj = json.loads((tmp / 'backup.json').read_text(encoding='utf-8'))
+            self.assertEqual(backup_obj['schema'], 'bento_glow_pdv_backup_v1')
+            self.assertEqual(backup_obj['salesCount'], 2)
 
 
 if __name__ == '__main__':

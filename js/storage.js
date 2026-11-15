@@ -248,10 +248,53 @@
     });
   }
 
+  function getMigratedSeedData(seedData) {
+    if (!root.PDV_MIGRATED_DATA || typeof root.PDV_MIGRATED_DATA !== "object") {
+      return null;
+    }
+    if (root.PDV_SEED_DATA && seedData !== root.PDV_SEED_DATA) {
+      return null;
+    }
+    return root.PDV_MIGRATED_DATA;
+  }
+
+  function applyMigratedSeedState(state, seedData) {
+    const migrated = getMigratedSeedData(seedData);
+    if (!migrated || !state) {
+      return state;
+    }
+
+    const migratedSales = Array.isArray(migrated.sales) ? migrated.sales : [];
+    const migratedAdjustments = Array.isArray(migrated.stockAdjustments) ? migrated.stockAdjustments : [];
+    const migratedClients = Array.isArray(migrated.clients) ? migrated.clients : [];
+    const migratedClosings =
+      migrated.cashClosings && typeof migrated.cashClosings === "object"
+        ? migrated.cashClosings
+        : {};
+
+    state.sales = mergeSalesLists(state.sales, migratedSales).sort(function (a, b) {
+      return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+    });
+    state.stockAdjustments = mergeStockAdjustmentsLists(state.stockAdjustments, migratedAdjustments);
+    if (migratedClients.length > 0) {
+      state.clients = mergeClientsLists(migratedClients, state.clients);
+    }
+    state.cashClosings = mergeCashClosings(state.cashClosings, migratedClosings);
+
+    const seedProducts = (seedData && seedData.products) || [];
+    state.products = reconcileProductsStock(
+      seedProducts,
+      [state.products],
+      state.sales,
+      state.stockAdjustments
+    );
+    return state;
+  }
+
   function mergePersistedWithSeed(persisted, seedData) {
     const base = buildInitialState(seedData);
     if (!persisted || typeof persisted !== "object") {
-      return base;
+      return applyMigratedSeedState(base, seedData);
     }
 
     if (Array.isArray(persisted.sales)) {
@@ -278,7 +321,7 @@
     }
 
     base.lastSyncedAt = persisted.lastSyncedAt || null;
-    return base;
+    return applyMigratedSeedState(base, seedData);
   }
 
   function loadStateSync(seedData) {
@@ -291,13 +334,13 @@
       }
     }
     if (!raw) {
-      return buildInitialState(seedData);
+      return applyMigratedSeedState(buildInitialState(seedData), seedData);
     }
     try {
       const parsed = JSON.parse(raw);
       return mergePersistedWithSeed(parsed, seedData);
     } catch (_err) {
-      return buildInitialState(seedData);
+      return applyMigratedSeedState(buildInitialState(seedData), seedData);
     }
   }
 
@@ -308,6 +351,9 @@
       const combinedSales = mergeSalesLists(localState.sales, idbData.sales);
       const combinedClients = mergeClientsLists(localState.clients, idbData.clients);
       const combinedAdjustments = mergeStockAdjustmentsLists(localState.stockAdjustments, idbData.stockAdjustments);
+      combinedSales.sort(function (a, b) {
+        return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+      });
       const combinedClosings = mergeCashClosings(localState.cashClosings, idbData.cashClosings);
       const base = buildInitialState(seedData);
       const reconciledProducts = reconcileProductsStock(

@@ -17,7 +17,7 @@ A aplicação é projetada para hospedagem estática no **GitHub Pages** sem dep
    - Conector **Google Sheets Sync** (`backend/Code.gs` + fila de sincronização no cliente) com suporte a envio em lote (`SYNC_BATCH`) e verificação de token Google (`VERIFY_TOKEN`), gravando nas 5 abas oficiais (`Vendas_PDV`, `Itens_Vendidos` incluindo `Ajuste Estoque (+Un)`, `Clientes_PDV`, `Estoque_GlowHub` e `Ajustes_Estoque`).
 3. **Segurança e Controle de Acesso (`ARC-10` & `CTR-PWA-AUTH-WALL-01`):**
    - Separação de papéis (`RBAC`): apenas usuários com `role === 'Gestor'` (`isAdmin === true`, isto é, `Carolina` e `João`) visualizam o Painel Executivo de Volume de Vendas por Segmento/Marca/Clube e ações administrativas de reset/configuração; todos os usuários autenticados acessam o fluxo de Fechamento do Dia & Relatórios (Caixa, Discrepância, Vendas com Emissor e Clientes do Dia).
-   - Service Worker (`sw.js`, cache `bento-glow-pdv-shell-v1.5.1`) aplica *Network Only* para `script.google.com` e `oauth2.googleapis.com`, e *Cache First* para os assets estáticos da aplicação (incluindo `assets/icon-192.png`, `assets/icon-512.png`, `assets/glowhub-logo.png` e `assets/GlowHub-Oficial.png`).
+   - Service Worker (`sw.js`, cache `bento-glow-pdv-shell-v1.5.2`) aplica *Network Only* para `script.google.com` e `oauth2.googleapis.com`, e *Cache First* para os assets estáticos da aplicação (incluindo `assets/icon-192.png`, `assets/icon-512.png`, `assets/glowhub-logo.png` e `assets/GlowHub-Oficial.png`).
 
 ---
 
@@ -32,7 +32,8 @@ A aplicação é projetada para hospedagem estática no **GitHub Pages** sem dep
 ├── assets/                       # Logos oficiais (GlowHub-Oficial.png / glowhub-logo.png, BentoClub, marcas)
 ├── data/
 │   ├── seed-data.json            # Dataset canônico higienizado (12 usuários, 254 produtos, 31 clubes, 1721 clientes)
-│   └── seed-data.js              # Bundle JS do dataset para carregamento zero-config
+│   ├── seed-data.js              # Bundle JS do dataset para carregamento zero-config
+│   └── migrated-sales.js         # Snapshot exportado das vendas locais migradas para produção
 ├── js/
 │   ├── domain.js                 # Regras de negócio puras (catálogo, ajuste de estoque negativo, fechamento de caixa, relatórios)
 │   ├── storage.js                # Persistência híbrida (IndexedDB + LocalStorage + CSV/Excel + stockAdjustments + cashClosings + Sync)

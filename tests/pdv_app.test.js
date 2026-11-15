@@ -574,6 +574,73 @@ test("ENG-01 REQ-02 REQ-07 REQ-14: validates Bento header/drawer logo parity, co
   expect(container.innerHTML).toContain("report-sales-table");
 });
 
+test("REQ-10 AC-10 REQ-13 ENG-08: loads 9 migrated local sales (R$ 6.284,72), reconciles Glow Hub stock idempotently across stale/populated snapshots, and keeps backup compatibility", () => {
+  expect(Boolean(globalThis.PDV_MIGRATED_DATA)).toBe(true);
+  expect(PDV_MIGRATED_DATA.sales.length).toBe(9);
+
+  // Canonical PDV_SEED_DATA remains clean while hydrated state receives migrated sales + stock deductions
+  const seedPrd158 = PDV_SEED_DATA.products.find(function (p) { return p.id === "prd-158"; });
+  expect(seedPrd158.stock).toBe(23);
+
+  const freshLoaded = PDVStorage.loadStateSync(PDV_SEED_DATA);
+  expect(freshLoaded.sales.length).toBe(9);
+  const sumTotal = freshLoaded.sales.reduce(function (acc, s) { return acc + s.totalCents; }, 0);
+  const sumGlow = freshLoaded.sales.reduce(function (acc, s) { return acc + s.glowHubCents; }, 0);
+  const sumBento = freshLoaded.sales.reduce(function (acc, s) { return acc + s.bentoClubCents; }, 0);
+  expect(sumTotal).toBe(628472);
+  expect(sumGlow).toBe(182972);
+  expect(sumBento).toBe(445500);
+  expect(freshLoaded.sales.every(function (s) { return s.syncStatus === "pending"; })).toBe(true);
+
+  const expectedStock = {
+    "prd-078": 32,
+    "prd-089": 15,
+    "prd-129": 10,
+    "prd-145": 23,
+    "prd-154": 32,
+    "prd-158": 21,
+    "prd-176": 2,
+    "prd-182": 7
+  };
+  Object.keys(expectedStock).forEach(function (pid) {
+    const prod = freshLoaded.products.find(function (p) { return p.id === pid; });
+    expect(prod.stock).toBe(expectedStock[pid]);
+  });
+
+  // Stale production browser snapshot (0 sales saved before migration, untouched stock 23) upgrades cleanly
+  const staleUpgrade = PDVStorage.mergePersistedWithSeed({
+    sales: [],
+    products: PDV_SEED_DATA.products.map(function (p) { return { id: p.id, initialStock: p.stock, stock: p.stock }; }),
+    stockAdjustments: [],
+    cashClosings: {}
+  }, PDV_SEED_DATA);
+  expect(staleUpgrade.sales.length).toBe(9);
+  expect(staleUpgrade.products.find(function (p) { return p.id === "prd-158"; }).stock).toBe(21);
+
+  // Subsequent reload does not double-count sales or double-deduct stock, and keeps synced flag upgrades
+  const withOneSynced = Object.assign({}, staleUpgrade, {
+    sales: staleUpgrade.sales.map(function (s, idx) {
+      return idx === 0 ? Object.assign({}, s, { syncStatus: "synced" }) : s;
+    })
+  });
+  const reloadCheck = PDVStorage.mergePersistedWithSeed(withOneSynced, PDV_SEED_DATA);
+  expect(reloadCheck.sales.length).toBe(9);
+  expect(reloadCheck.products.find(function (p) { return p.id === "prd-158"; }).stock).toBe(21);
+  expect(reloadCheck.sales.find(function (s) { return s.id === withOneSynced.sales[0].id; }).syncStatus).toBe("synced");
+
+  // Manual JSON backup import with migrated payload remains valid and exact
+  const imported = PDVStorage.importBackupPayload(JSON.stringify({
+    schema: "bento_glow_pdv_backup_v1",
+    sales: PDV_MIGRATED_DATA.sales,
+    clients: PDV_MIGRATED_DATA.clients,
+    stockAdjustments: [],
+    cashClosings: {}
+  }), { sales: [], clients: [], products: [] }, PDV_SEED_DATA);
+  expect(imported.ok).toBe(true);
+  expect(imported.state.sales.length).toBe(9);
+  expect(imported.state.products.find(function (p) { return p.id === "prd-158"; }).stock).toBe(21);
+});
+
 if (typeof print === "function" && typeof window === "undefined") {
   const failed = _jsTestResults.filter(function (r) { return !r.passed; });
   print(JSON.stringify({ total: _jsTestResults.length, failed: failed.length, results: _jsTestResults }));
