@@ -614,13 +614,13 @@ class TestPDVEngineAndRTM(unittest.TestCase):
         self.assertIn('btn-print-full-closing', app_js_text)
 
         sw_text = (ROOT_DIR / 'sw.js').read_text(encoding='utf-8')
-        self.assertIn('bento-glow-pdv-shell-v1.5.0', sw_text)
+        self.assertIn('bento-glow-pdv-shell-v1.5.1', sw_text)
         self.assertIn('./assets/icon-192.png', sw_text)
         self.assertIn('./assets/icon-512.png', sw_text)
         self.assertIn('ignoreSearch: true', sw_text)
 
         arch_text = (ROOT_DIR / 'docs' / 'specs' / 'ARCHITECTURE.md').read_text(encoding='utf-8')
-        self.assertIn('bento-glow-pdv-shell-v1.5.0', arch_text)
+        self.assertIn('bento-glow-pdv-shell-v1.5.1', arch_text)
 
         index_text = (ROOT_DIR / 'index.html').read_text(encoding='utf-8')
         self.assertIn('assets/icon-192.png', index_text)
@@ -667,6 +667,11 @@ class TestPDVEngineAndRTM(unittest.TestCase):
         self.assertIn('pointer-events: none;', styles_text)
         self.assertIn('.auth-wall-screen', styles_text)
         self.assertIn('[data-print-target="page"]', styles_text)
+        self.assertIn('.pdv-shell:has(.cart-drawer) .pdv-toast', styles_text)
+        self.assertIn('.cart-drawer .drawer-header', styles_text)
+        self.assertIn('transition: none;', styles_text)
+        mobile_css = styles_text.split('@media (max-width: 1024px)')[1]
+        self.assertNotIn('min-height: 40px;', mobile_css)
         self.assertNotIn('#login-screen', styles_text)
         self.assertNotIn('.card-out-of-stock', styles_text)
         self.assertNotIn('.stock-zero', styles_text)
