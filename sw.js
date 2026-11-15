@@ -3,7 +3,7 @@
  * - Network Only para script.google.com e oauth2.googleapis.com
  * - Cache First para assets estáticos para operação offline em eventos
  */
-const CACHE_NAME = "bento-glow-pdv-shell-v1.4.1";
+const CACHE_NAME = "bento-glow-pdv-shell-v1.5.0";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -14,6 +14,8 @@ const STATIC_ASSETS = [
   "./js/storage.js",
   "./js/app.js",
   "./js/auth-guard.js",
+  "./assets/icon-192.png",
+  "./assets/icon-512.png",
   "./assets/bento-logo-bege.png",
   "./assets/bento-logo-verde.png",
   "./assets/glowhub-logo.png",

@@ -465,6 +465,115 @@ test("REQ-14 AC-14 ENG-01: renders compact mobile Material You drawer, data-labe
   expect(fullSheetHtml.indexOf("<input")).toBe(-1);
 });
 
+test("ENG-01 REQ-02 REQ-07 REQ-14: validates Bento header/drawer logo parity, compact labels, 12-col sales class, modal error placement, and scrollable 10-item receipt", () => {
+  const listeners = {};
+  function makeStubEl(selector, extraAttrs) {
+    return {
+      addEventListener: function (ev, fn) {
+        listeners[selector + ":" + ev] = fn;
+      },
+      getAttribute: function (attr) {
+        return (extraAttrs && extraAttrs[attr]) || null;
+      },
+      focus: function () {},
+      setSelectionRange: function () {}
+    };
+  }
+  let lastToastSlotHtml = "";
+  const toastSlotStub = {
+    set innerHTML(val) { lastToastSlotHtml = val; },
+    get innerHTML() { return lastToastSlotHtml; }
+  };
+  const container = {
+    innerHTML: "",
+    querySelector: function (sel) {
+      if (sel === "#pdv-toast-slot") {
+        return toastSlotStub;
+      }
+      if (container.innerHTML.indexOf(sel.slice(1)) !== -1) {
+        return makeStubEl(sel);
+      }
+      return null;
+    },
+    querySelectorAll: function (sel) {
+      if (sel === "[data-mobile-nav]" && container.innerHTML.indexOf('data-mobile-nav="reports"') !== -1) {
+        return [makeStubEl('[data-mobile-nav="reports"]', { "data-mobile-nav": "reports" })];
+      }
+      if (sel === "[data-report-tab]" && container.innerHTML.indexOf('data-report-tab="sales_list"') !== -1) {
+        return [makeStubEl('[data-report-tab="sales_list"]', { "data-report-tab": "sales_list" })];
+      }
+      if (sel === "[data-client-tab]" && container.innerHTML.indexOf('data-client-tab="new"') !== -1) {
+        return [makeStubEl('[data-client-tab="new"]', { "data-client-tab": "new" })];
+      }
+      return [];
+    }
+  };
+
+  const carolina = PDVDomain.authenticateUser(PDV_SEED_DATA.users, "Carolina");
+  PDVApp.mountDashboard(container, carolina);
+
+  // Home view sets print target to "page", frames GlowHub/BentoClub, and uses beige logo in green topbar
+  expect(container.innerHTML).toContain('data-print-target="page"');
+  expect(container.innerHTML).toContain("glow-logo-bg");
+  expect(container.innerHTML).toContain("club-logo-bg");
+  expect(container.innerHTML).toContain("topbar-label-compact");
+  expect(container.innerHTML).toContain('src="assets/bento-logo-bege.png"');
+
+  // Mobile drawer uses green logo (light drawer surface) instead of beige logo
+  listeners["#btn-mobile-nav-open:click"]({ currentTarget: makeStubEl("#btn-mobile-nav-open") });
+  const drawerStart = container.innerHTML.indexOf('class="m3-drawer-brand"');
+  const drawerLogoSlice = container.innerHTML.slice(drawerStart, drawerStart + 320);
+  expect(drawerLogoSlice).toContain('src="assets/bento-logo-verde.png"');
+  expect(drawerLogoSlice.indexOf("bento-logo-bege.png")).toBe(-1);
+
+  // Close mobile drawer via backdrop or navigate cleanly to Reports first to verify report print target
+  listeners['[data-mobile-nav="reports"]:click']({
+    currentTarget: makeStubEl('[data-mobile-nav="reports"]', { "data-mobile-nav": "reports" })
+  });
+  expect(container.innerHTML).toContain('data-print-target="report"');
+
+  // Client modal places validation alert inside .modal-body (never floating outside)
+  listeners["#btn-open-client-modal:click"]({ currentTarget: makeStubEl("#btn-open-client-modal") });
+  listeners['[data-client-tab="new"]:click']({
+    currentTarget: makeStubEl('[data-client-tab="new"]', { "data-client-tab": "new" })
+  });
+  listeners["#form-quick-new-client:submit"]({ preventDefault: function () {} });
+  const modalBodyPos = container.innerHTML.indexOf('class="modal-body quick-client-form"');
+  const modalAlertPos = container.innerHTML.indexOf('class="auth-alert-error"');
+  expect(modalBodyPos > 0).toBe(true);
+  expect(modalAlertPos > modalBodyPos).toBe(true);
+  listeners["#btn-close-client-modal:click"]({ currentTarget: makeStubEl("#btn-close-client-modal") });
+
+  // Bind client and add 10 distinct products, finalize sale, and verify scrollable receipt layout
+  PDVApp.completeClientBindAndPendingAdd({
+    id: "cli-0001",
+    name: "Adalgiza Araújo",
+    phone: "92984414454"
+  });
+  const tenProds = PDVApp.getDbState().products.filter(function (p) { return p.stock > 0; }).slice(0, 10);
+  expect(tenProds.length).toBe(10);
+  for (let i = 0; i < tenProds.length; i++) {
+    PDVApp.handleAttemptAddCatalogItem(tenProds[i], 1);
+  }
+  expect(lastToastSlotHtml).toContain('class="pdv-toast"');
+  listeners["#btn-finalize-sale:click"]({ currentTarget: makeStubEl("#btn-finalize-sale") });
+  expect(container.innerHTML).toContain('id="receipt-modal-backdrop"');
+  expect(container.innerHTML).toContain('class="modal-body receipt-body"');
+  expect(container.innerHTML).toContain('class="receipt-actions"');
+  expect(container.innerHTML).toContain('id="btn-print-receipt"');
+  expect(container.innerHTML).toContain('id="btn-receipt-new-sale"');
+  expect(container.innerHTML).toContain('data-print-target="receipt"');
+  expect(lastToastSlotHtml).toBe("");
+
+  // Close receipt, return to Reports sales tab (now populated with the new sale) and verify .report-sales-table
+  listeners["#btn-receipt-new-sale:click"]({ currentTarget: makeStubEl("#btn-receipt-new-sale") });
+  listeners["#btn-nav-reports:click"]({ currentTarget: makeStubEl("#btn-nav-reports") });
+  listeners['[data-report-tab="sales_list"]:click']({
+    currentTarget: makeStubEl('[data-report-tab="sales_list"]', { "data-report-tab": "sales_list" })
+  });
+  expect(container.innerHTML).toContain("report-sales-table");
+});
+
 if (typeof print === "function" && typeof window === "undefined") {
   const failed = _jsTestResults.filter(function (r) { return !r.passed; });
   print(JSON.stringify({ total: _jsTestResults.length, failed: failed.length, results: _jsTestResults }));

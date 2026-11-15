@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+import struct
 import subprocess
 import sys
 import unittest
@@ -612,13 +614,72 @@ class TestPDVEngineAndRTM(unittest.TestCase):
         self.assertIn('btn-print-full-closing', app_js_text)
 
         sw_text = (ROOT_DIR / 'sw.js').read_text(encoding='utf-8')
-        self.assertIn('bento-glow-pdv-shell-v1.4.1', sw_text)
+        self.assertIn('bento-glow-pdv-shell-v1.5.0', sw_text)
+        self.assertIn('./assets/icon-192.png', sw_text)
+        self.assertIn('./assets/icon-512.png', sw_text)
         self.assertIn('ignoreSearch: true', sw_text)
+
+        arch_text = (ROOT_DIR / 'docs' / 'specs' / 'ARCHITECTURE.md').read_text(encoding='utf-8')
+        self.assertIn('bento-glow-pdv-shell-v1.5.0', arch_text)
+
+        index_text = (ROOT_DIR / 'index.html').read_text(encoding='utf-8')
+        self.assertIn('assets/icon-192.png', index_text)
+        self.assertIn('name="theme-color" content="#1D6452"', index_text)
 
         manifest = json.loads((ROOT_DIR / 'manifest.webmanifest').read_text(encoding='utf-8'))
         self.assertEqual(manifest['id'], './index.html')
         self.assertEqual(manifest['start_url'], './index.html')
         self.assertEqual(manifest['scope'], './')
+        self.assertEqual(manifest['theme_color'], '#1D6452')
+        icon_srcs = {entry['src'] for entry in manifest['icons']}
+        self.assertIn('assets/icon-192.png', icon_srcs)
+        self.assertIn('assets/icon-512.png', icon_srcs)
+
+        # PNG dimensions & solid RGB icon checks (stdlib struct on PNG IHDR)
+        def png_meta(rel_path: str) -> tuple[int, int, int]:
+            raw = (ROOT_DIR / rel_path).read_bytes()
+            self.assertEqual(raw[:8], b'\x89PNG\r\n\x1a\n')
+            w, h = struct.unpack('>II', raw[16:24])
+            return w, h, raw[25]
+
+        self.assertEqual(png_meta('assets/icon-192.png'), (192, 192, 2))
+        self.assertEqual(png_meta('assets/icon-512.png'), (512, 512, 2))
+        bege_w, bege_h, _ = png_meta('assets/bento-logo-bege.png')
+        verde_w, verde_h, _ = png_meta('assets/bento-logo-verde.png')
+        self.assertGreater(bege_w, bege_h * 4)
+        self.assertGreater(verde_w, verde_h * 4)
+
+        # UI contrast, cascade, responsive drawer/topbar, print target & hygiene invariants
+        self.assertIn('background: var(--bento-verde-escuro);', styles_text)
+        self.assertIn('background: #124236;', styles_text)
+        self.assertNotIn('background: var(--bento-bege-claro);\n  color: var(--bento-verde-escuro);', styles_text)
+        self.assertIn('background: var(--bento-marrom-terra);', styles_text)
+        self.assertIn(':focus-visible', styles_text)
+        self.assertIn('::placeholder', styles_text)
+        self.assertIn('grid-column: 1 / -1;', styles_text)
+        self.assertIn('@media (max-width: 1024px)', styles_text)
+        self.assertIn('@media (min-width: 1025px) and (max-width: 1366px)', styles_text)
+        self.assertIn('.glow-logo-bg', styles_text)
+        self.assertIn('.club-logo-bg', styles_text)
+        self.assertIn('.report-sales-table', styles_text)
+        self.assertIn('.receipt-body', styles_text)
+        self.assertIn('.receipt-actions', styles_text)
+        self.assertIn('pointer-events: none;', styles_text)
+        self.assertIn('.auth-wall-screen', styles_text)
+        self.assertIn('[data-print-target="page"]', styles_text)
+        self.assertNotIn('#login-screen', styles_text)
+        self.assertNotIn('.card-out-of-stock', styles_text)
+        self.assertNotIn('.stock-zero', styles_text)
+        self.assertNotIn('.report-filters', styles_text)
+
+        declared_vars = set(re.findall(r'(--[a-zA-Z0-9_-]+)\s*:', styles_text))
+        used_vars = set(re.findall(r'var\((--[a-zA-Z0-9_-]+)\)', styles_text))
+        self.assertEqual(declared_vars - used_vars, set())
+
+        self.assertIn('glow-logo-bg', app_js_text)
+        self.assertIn('report-sales-table', app_js_text)
+        self.assertIn('receipt-body', app_js_text)
+        self.assertIn('topbar-label-compact', app_js_text)
 
         deploy_yml = (ROOT_DIR / '.github' / 'workflows' / 'deploy-pages.yml').read_text(encoding='utf-8')
         self.assertIn('actions/deploy-pages@v4', deploy_yml)

@@ -184,7 +184,7 @@
         '<div class="topbar-left topbar-desktop-nav">' +
           '<button type="button" class="btn-nav-home ' + (uiState.view === "home" ? "active" : "") + '" id="btn-go-home" title="Voltar ao Menu Principal">' +
             '<img src="assets/bento-logo-bege.png" alt="Bento" class="topbar-logo" />' +
-            "<span>Menu Principal</span>" +
+            '<span class="topbar-label-full">Menu Principal</span><span class="topbar-label-compact">Início</span>' +
           "</button>" +
           '<div class="topbar-seg-pills">' +
             '<button type="button" class="seg-pill ' + (uiState.view === "glow_hub" ? "active" : "") + '" id="btn-nav-glow">' +
@@ -194,7 +194,7 @@
               "BentoClub" +
             "</button>" +
             '<button type="button" class="seg-pill ' + (uiState.view === "reports" ? "active" : "") + '" id="btn-nav-reports">' +
-              "📊 Fechamento &amp; Relatórios " +
+              '<span class="topbar-label-full">📊 Fechamento &amp; Relatórios</span><span class="topbar-label-compact">📊 Fechamento</span> ' +
               '<span class="pill-count">' + salesCount + "</span>" +
             "</button>" +
           "</div>" +
@@ -207,7 +207,7 @@
           "</button>" +
           '<button type="button" class="btn-sync-chip topbar-desktop-secondary" id="btn-open-sync-modal" title="Sincronização Google Sheets e Backup Excel/CSV">' +
             '<span class="sync-dot ' + (pendingSyncCount > 0 ? "pending" : "ok") + '"></span>' +
-            "<span>Dados / Nuvem</span>" +
+            '<span class="topbar-label-full">Dados / Nuvem</span><span class="topbar-label-compact">Nuvem</span>' +
           "</button>" +
           '<button type="button" class="btn-cart-trigger" id="btn-toggle-cart">' +
             '<span class="cart-icon">🛒</span>' +
@@ -217,7 +217,9 @@
           '<div class="user-session-pill topbar-desktop-secondary">' +
             '<span class="user-session-name">' + escapeHtml(activeUser.shortName) + "</span>" +
             '<span class="user-session-role ' + (isAdmin ? "admin" : "") + '">' +
-              escapeHtml(isAdmin ? "Admin • Gestor" : activeUser.role) +
+              (isAdmin
+                ? '<span class="topbar-label-full">Admin • Gestor</span><span class="topbar-label-compact">Gestor</span>'
+                : escapeHtml(activeUser.role)) +
             "</span>" +
             '<button type="button" class="btn-logout" id="btn-logout-user" title="Trocar operador">Sair</button>' +
           "</div>" +
@@ -243,7 +245,7 @@
         '<aside class="m3-nav-drawer" role="dialog" aria-modal="true" aria-label="Menu de Navegação">' +
           '<div class="m3-drawer-header">' +
             '<div class="m3-drawer-brand">' +
-              '<img src="assets/bento-logo-bege.png" alt="Bento" class="m3-drawer-logo" />' +
+              '<img src="assets/bento-logo-verde.png" alt="Bento" class="m3-drawer-logo" />' +
               "<div>" +
                 "<strong>GlowHub &amp; BentoClub</strong>" +
                 "<span>Ponto de Venda PWA</span>" +
@@ -403,7 +405,7 @@
           "</div>" +
           '<div class="segment-cards-grid">' +
             '<button type="button" class="segment-hero-card card-glow-hub" id="card-choose-glowhub">' +
-              '<div class="segment-logo-wrap">' +
+              '<div class="segment-logo-wrap glow-logo-bg">' +
                 '<img src="assets/glowhub-logo.png" alt="Glow Hub" class="segment-main-logo" />' +
               "</div>" +
               '<div class="segment-card-body">' +
@@ -976,7 +978,7 @@
         '<div class="report-customer-card">' +
           (rowsHtml
             ? '<div class="report-table-wrap">' +
-                '<table class="report-items-table">' +
+                '<table class="report-items-table report-sales-table">' +
                   "<thead>" +
                     "<tr>" +
                       "<th>Data/Hora</th>" +
@@ -1886,12 +1888,11 @@
             "</button>" +
           "</div>" +
 
-          (uiState.clientModalError
-            ? '<div class="auth-alert-error" role="alert">' + escapeHtml(uiState.clientModalError) + "</div>"
-            : "") +
-
           (uiState.clientModalTab === "search"
             ? '<div class="modal-body">' +
+                (uiState.clientModalError
+                  ? '<div class="auth-alert-error" role="alert">' + escapeHtml(uiState.clientModalError) + "</div>"
+                  : "") +
                 '<div class="client-search-row">' +
                   '<input type="search" id="input-client-modal-search" class="input-touch" ' +
                     'placeholder="Digite o nome ou celular do cliente..." ' +
@@ -1907,6 +1908,9 @@
                 "</div>" +
               "</div>"
             : '<form id="form-quick-new-client" class="modal-body quick-client-form" autocomplete="off">' +
+                (uiState.clientModalError
+                  ? '<div class="auth-alert-error" role="alert">' + escapeHtml(uiState.clientModalError) + "</div>"
+                  : "") +
                 '<div class="form-field">' +
                   "<label for=\"input-new-client-name\">Nome Completo do Cliente *</label>" +
                   '<input type="text" id="input-new-client-name" class="input-touch" required placeholder="Ex: Maria Clara Souza" value="' + escapeHtml(uiState.newClientNameInput) + '" />' +
@@ -1971,25 +1975,29 @@
     return (
       '<div class="modal-backdrop" id="receipt-modal-backdrop">' +
         '<div class="modal-card receipt-modal" role="dialog" aria-modal="true" aria-label="Comprovante de Venda">' +
-          '<div class="receipt-badge-ok">✓ Venda Registrada com Sucesso!</div>' +
-          "<h2>Pedido " + escapeHtml(sale.id) + "</h2>" +
-          '<p class="receipt-meta">' + escapeHtml(dt) + " • Atendido por <strong>" + escapeHtml(sale.seller.shortName) + "</strong></p>" +
-
-          '<div class="receipt-client-box">' +
-            "<span>Cliente: <strong>" + escapeHtml(sale.client.name) + "</strong></span>" +
-            "<span>Celular: <strong>" + escapeHtml(root.PDVDomain.formatPhoneDisplay(sale.client.phone)) + "</strong></span>" +
+          '<div class="receipt-modal-header">' +
+            '<div class="receipt-badge-ok">✓ Venda Registrada com Sucesso!</div>' +
+            "<h2>Pedido " + escapeHtml(sale.id) + "</h2>" +
+            '<p class="receipt-meta">' + escapeHtml(dt) + " • Atendido por <strong>" + escapeHtml(sale.seller.shortName) + "</strong></p>" +
           "</div>" +
 
-          '<div class="receipt-items-box">' + itemsHtml + "</div>" +
-          adjustmentsBoxHtml +
+          '<div class="modal-body receipt-body">' +
+            '<div class="receipt-client-box">' +
+              "<span>Cliente: <strong>" + escapeHtml(sale.client.name) + "</strong></span>" +
+              "<span>Celular: <strong>" + escapeHtml(root.PDVDomain.formatPhoneDisplay(sale.client.phone)) + "</strong></span>" +
+            "</div>" +
 
-          '<div class="receipt-payments-box">' +
-            "<h4>Formas de Pagamento</h4>" +
-            paymentsHtml +
-            '<div class="receipt-total-line"><span>Total da Venda</span><strong>' + root.PDVDomain.formatBRLFromCents(sale.totalCents) + "</strong></div>" +
-            (sale.changeCents > 0
-              ? '<div class="receipt-change-line"><span>Troco Devolvido</span><strong>' + root.PDVDomain.formatBRLFromCents(sale.changeCents) + "</strong></div>"
-              : "") +
+            '<div class="receipt-items-box">' + itemsHtml + "</div>" +
+            adjustmentsBoxHtml +
+
+            '<div class="receipt-payments-box">' +
+              "<h4>Formas de Pagamento</h4>" +
+              paymentsHtml +
+              '<div class="receipt-total-line"><span>Total da Venda</span><strong>' + root.PDVDomain.formatBRLFromCents(sale.totalCents) + "</strong></div>" +
+              (sale.changeCents > 0
+                ? '<div class="receipt-change-line"><span>Troco Devolvido</span><strong>' + root.PDVDomain.formatBRLFromCents(sale.changeCents) + "</strong></div>"
+                : "") +
+            "</div>" +
           "</div>" +
 
           '<div class="receipt-actions">' +
@@ -2072,7 +2080,13 @@
       printSheetHtml = renderPrintSheet(closing);
     }
 
-    const activePrintTarget = uiState.receiptSale ? "receipt" : (uiState.printTarget || "report");
+    const activePrintTarget = uiState.receiptSale
+      ? "receipt"
+      : (uiState.view === "reports" ? "report" : "page");
+
+    if (typeof document !== "undefined" && document.body) {
+      document.body.setAttribute("data-print-target", activePrintTarget);
+    }
 
     appContainer.innerHTML =
       '<div class="pdv-shell" data-print-target="' + escapeHtml(activePrintTarget) + '">' +
@@ -2324,6 +2338,11 @@
     }
 
     resetCartAndCheckout();
+    if (toastTimer) {
+      clearTimeout(toastTimer);
+      toastTimer = null;
+    }
+    uiState.toastMessage = "";
     uiState.cartDrawerOpen = false;
     uiState.printTarget = "receipt";
     uiState.receiptSale = result.sale;
